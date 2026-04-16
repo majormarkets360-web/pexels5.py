@@ -20,7 +20,7 @@ import traceback
 
 # ---------- Page Configuration ----------
 st.set_page_config(
-    page_title="AI Video Creator Pro - Enterprise 2026",
+    page_title="AI Video Creator Pro – CapCut Edition 2026",
     page_icon="🎬",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -35,7 +35,7 @@ st.markdown("""
     h1, h2, h3 { font-family: 'Syne', sans-serif; }
 
     .stButton > button {
-        background: linear-gradient(135deg, #0f4c75 0%, #1b6ca8 60%, #00b4d8 100%);
+        background: linear-gradient(135deg, #000000 0%, #1a1a1a 60%, #ff2d55 100%);
         color: white;
         border: none;
         padding: 14px 28px;
@@ -46,11 +46,11 @@ st.markdown("""
     }
     .stButton > button:hover {
         transform: translateY(-2px);
-        box-shadow: 0 10px 25px rgba(0, 180, 216, 0.35);
+        box-shadow: 0 10px 25px rgba(255, 45, 85, 0.35);
     }
 
     .hero-section {
-        background: linear-gradient(135deg, #0f4c75 0%, #1b6ca8 60%, #00b4d8 100%);
+        background: linear-gradient(135deg, #000000 0%, #1a1a1a 60%, #ff2d55 100%);
         border-radius: 20px;
         padding: 40px;
         text-align: center;
@@ -78,19 +78,11 @@ st.markdown("""
         letter-spacing: 0.5px;
         margin-right: 6px;
     }
-    .luma-badge   { background: #0f4c75; color: #00b4d8; }
-    .kling-badge  { background: #1a1a2e; color: #e94560; }
-    .replic-badge { background: #1e1e2e; color: #cba6f7; }
+    .capcut-badge { background: #1a1a1a; color: #ff2d55; border: 1px solid #ff2d55; }
 </style>
 """, unsafe_allow_html=True)
 
 # ---------- Enums ----------
-class VideoModel(Enum):
-    LUMA_DREAM   = "luma-dream-machine"
-    KLING_3      = "kling-v1.6"
-    REPLICATE_WAN = "replicate-wan2.1"
-    REPLICATE_COG = "replicate-cogvideox"
-
 class SocialPlatform(Enum):
     TWITTER   = "twitter"
     LINKEDIN  = "linkedin"
@@ -101,55 +93,45 @@ class SocialPlatform(Enum):
 
 # ---------- Session State ----------
 for key, default in [
-    ("video_generated",       False),
-    ("final_video_bytes",     None),
-    ("generation_history",    []),
-    ("current_batch_id",      None),
-    ("social_posts",          []),
+    ("video_generated",    False),
+    ("final_video_bytes",  None),
+    ("generation_history", []),
+    ("current_batch_id",   None),
+    ("social_posts",       []),
 ]:
     if key not in st.session_state:
         st.session_state[key] = default
 
 # ---------- Sidebar ----------
 st.sidebar.title("🎬 AI Video Creator Pro")
-st.sidebar.markdown("### Enterprise Edition 2026")
+st.sidebar.markdown("### CapCut Edition 2026")
 st.sidebar.markdown("---")
 
-with st.sidebar.expander("🔐 API Keys", expanded=True):
-    st.markdown("#### 🎥 Video Generation APIs")
+with st.sidebar.expander("🔐 CapCut API Credentials", expanded=True):
+    st.markdown("""
+    #### How to get your credentials
+    1. Sign up at [developer.capcut.com](https://developer.capcut.com)
+    2. Create an application to receive your **Client Key** and **Client Secret**
+    3. Browse available templates in the CapCut Template Library
+    """)
 
-    luma_api_key = st.text_input(
-        "Luma AI API Key  🆓 Free tier available",
+    capcut_client_key    = st.text_input(
+        "CapCut Client Key",
         type="password",
-        help="Get free credits at lumalabs.ai — Dream Machine generates cinematic 60-second videos",
-        placeholder="luma-xxxxxxxxxxxxxxxx"
+        help="From your CapCut Open Platform application dashboard",
+        placeholder="CapCut Client Key"
     )
-
-    kling_access_key = st.text_input(
-        "Kling AI Access Key",
+    capcut_client_secret = st.text_input(
+        "CapCut Client Secret",
         type="password",
-        help="Get from platform.klingai.com — supports up to 3-minute videos",
-        placeholder="Kling AccessKeyID"
+        help="From your CapCut Open Platform application dashboard",
+        placeholder="CapCut Client Secret"
     )
-    kling_secret_key = st.text_input(
-        "Kling AI Secret Key",
-        type="password",
-        help="Kling SecretAccessKey (used to sign JWT requests)",
-        placeholder="Kling SecretAccessKey"
-    )
-
-    replicate_api_key = st.text_input(
-        "Replicate API Token  🆓 $5 free credit on signup",
-        type="password",
-        help="replicate.com — pay-per-use, pennies per video. Hosts Wan 2.1 & CogVideoX.",
-        placeholder="r8_xxxxxxxxxxxxxxxxxxxx"
-    )
-
-    pexels_api_key = st.text_input(
-        "Pexels API Key (Stock Fallback)",
-        type="password",
-        help="Free — for stock footage when AI generation isn't available",
-        placeholder="Optional fallback..."
+    capcut_template_id   = st.text_input(
+        "Template ID (optional)",
+        help="Leave blank to use the auto-selected template based on your style choice. "
+             "Find IDs in the CapCut Template Library.",
+        placeholder="e.g. 7291234567890123456"
     )
 
 with st.sidebar.expander("📱 Social Media Integration", expanded=True):
@@ -179,22 +161,10 @@ with st.sidebar.expander("📱 Social Media Integration", expanded=True):
         instagram_token    = st.text_input("Access Token", type="password", key="instagram_token")
         instagram_business = st.text_input("Business Account ID")
 
-with st.sidebar.expander("⚙️ Advanced Settings", expanded=True):
-    video_model = st.selectbox(
-        "AI Video Model",
-        [
-            ("Luma Dream Machine (Free / Best Quality)", VideoModel.LUMA_DREAM),
-            ("Kling 1.6 (Up to 3 min, Pro Quality)",    VideoModel.KLING_3),
-            ("Replicate – Wan 2.1 (Fast, Cheap)",        VideoModel.REPLICATE_WAN),
-            ("Replicate – CogVideoX 5B (Cinematic)",     VideoModel.REPLICATE_COG),
-        ],
-        format_func=lambda x: x[0]
-    )[1]
-
+with st.sidebar.expander("⚙️ Video Settings", expanded=True):
     video_duration   = st.slider("Video Duration (seconds)", 5, 60, 30)
     video_resolution = st.selectbox("Resolution", ["480p", "720p", "1080p"], index=1)
     aspect_ratio     = st.selectbox("Aspect Ratio", ["16:9", "9:16", "1:1"], index=0)
-    enable_audio     = st.checkbox("Generate Synchronized Audio", value=True)
 
     batch_mode = st.checkbox("Batch Generation Mode", value=False,
                              help="Generate multiple variations for A/B testing")
@@ -207,403 +177,230 @@ with st.sidebar.expander("⚙️ Advanced Settings", expanded=True):
 
 st.sidebar.markdown("---")
 st.sidebar.info("""
-**🎯 Free/Trial Video APIs:**
-- **Luma Dream Machine**: 30 free credits/month at lumalabs.ai
-- **Kling AI**: Free tier with daily credits at platform.klingai.com
-- **Replicate**: $5 free credit on signup — Wan 2.1 & CogVideoX
+**🎯 CapCut Open Platform:**
+- Sign up free at [developer.capcut.com](https://developer.capcut.com)
+- Access thousands of professional templates
+- AI-powered video creation & editing
+- Supports 9:16, 16:9, and 1:1 aspect ratios
 """)
 
+
 # =============================================================================
-# LUMA AI – Dream Machine (Primary Replacement for Grok)
-# Docs: https://docs.lumalabs.ai/docs/api
-# Free tier: lumalabs.ai — 30 generations/month
-# Supports looped, extended, 60-second videos by chaining clips
+# CAPCUT OPEN PLATFORM API
+# Docs:  https://developer.capcut.com/docs
+# Auth:  OAuth 2.0 client-credentials flow
+# Flow:
+#   1. POST /v1/token → get access_token
+#   2. POST /v1/video/create → submit render job (template + text/media)
+#   3. GET  /v1/video/{task_id} → poll until "succeeded"
+#   4. Download video from the returned URL
 # =============================================================================
 
-def _luma_poll(generation_id: str, api_key: str, timeout: int = 300) -> Optional[str]:
-    """Poll Luma until generation completes; return video URL or None."""
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Accept": "application/json",
-    }
-    deadline = time.time() + timeout
-    while time.time() < deadline:
-        resp = requests.get(
-            f"https://api.lumalabs.ai/dream-machine/v1/generations/{generation_id}",
-            headers=headers,
+CAPCUT_API_BASE = "https://openapi.capcut.com"
+
+# ---- Style → default template mapping (update IDs from your CapCut account) ----
+STYLE_TEMPLATE_MAP: Dict[str, str] = {
+    "educational":     "7000000000000000001",
+    "entertaining":    "7000000000000000002",
+    "inspirational":   "7000000000000000003",
+    "urgent":          "7000000000000000004",
+    "curiosity-driven":"7000000000000000005",
+}
+
+# Resolution label → CapCut quality string
+RESOLUTION_MAP: Dict[str, str] = {
+    "480p":  "480p",
+    "720p":  "720p",
+    "1080p": "1080p",
+}
+
+# Aspect ratio → CapCut ratio code
+RATIO_MAP: Dict[str, str] = {
+    "16:9": "16:9",
+    "9:16": "9:16",
+    "1:1":  "1:1",
+}
+
+
+def _capcut_access_token(client_key: str, client_secret: str) -> Optional[str]:
+    """
+    Obtain a short-lived OAuth 2.0 access token from CapCut.
+    Uses the client-credentials grant.
+    Docs: https://developer.capcut.com/docs/authentication
+    """
+    try:
+        resp = requests.post(
+            f"{CAPCUT_API_BASE}/v1/oauth/token",
+            json={
+                "grant_type":    "client_credentials",
+                "client_key":    client_key,
+                "client_secret": client_secret,
+            },
             timeout=30,
         )
         if resp.status_code != 200:
-            break
-        data = resp.json()
-        state = data.get("state", "")
-        if state == "completed":
-            return data.get("assets", {}).get("video")
-        if state == "failed":
-            st.warning(f"Luma generation failed: {data.get('failure_reason', 'unknown')}")
+            st.warning(f"CapCut auth error {resp.status_code}: {resp.text[:200]}")
             return None
-        time.sleep(5)
-    return None
-
-def generate_video_luma(
-    prompt: str,
-    api_key: str,
-    duration: int = 10,
-    aspect_ratio: str = "16:9",
-) -> Optional[bytes]:
-    """
-    Generate video with Luma AI Dream Machine.
-    For durations > 9s the function chains multiple clips end-to-end using
-    Luma's 'extend' feature so you can hit the full 60-second target.
-
-    Free tier:  lumalabs.ai  →  30 credits / month (no credit card needed)
-    Install:    pip install lumaai   (or use REST directly as done here)
-    """
-    if not api_key:
-        return None
-
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-    }
-
-    # Luma Dream Machine supports 5s or 9s per generation.
-    # We chain clips to reach the requested duration.
-    clip_length   = 9          # seconds per clip
-    num_clips     = max(1, round(duration / clip_length))
-    clip_video_urls: List[str] = []
-
-    try:
-        # ---- First clip ----
-        payload = {
-            "prompt": prompt,
-            "aspect_ratio": aspect_ratio,
-            "loop": False,
-        }
-        resp = requests.post(
-            "https://api.lumalabs.ai/dream-machine/v1/generations",
-            headers=headers,
-            json=payload,
-            timeout=60,
-        )
-        if resp.status_code not in (200, 201):
-            st.warning(f"Luma API error {resp.status_code}: {resp.text[:200]}")
-            return None
-
-        first_id = resp.json().get("id")
-        if not first_id:
-            return None
-
-        video_url = _luma_poll(first_id, api_key)
-        if not video_url:
-            return None
-        clip_video_urls.append(video_url)
-
-        # ---- Extend to hit the target duration ----
-        prev_id = first_id
-        for _ in range(num_clips - 1):
-            ext_payload = {
-                "prompt": prompt,
-                "aspect_ratio": aspect_ratio,
-                "loop": False,
-                "keyframes": {
-                    "frame0": {
-                        "type": "generation",
-                        "id": prev_id,
-                    }
-                },
-            }
-            ext_resp = requests.post(
-                "https://api.lumalabs.ai/dream-machine/v1/generations",
-                headers=headers,
-                json=ext_payload,
-                timeout=60,
-            )
-            if ext_resp.status_code not in (200, 201):
-                break
-            ext_id = ext_resp.json().get("id")
-            if not ext_id:
-                break
-            ext_url = _luma_poll(ext_id, api_key)
-            if not ext_url:
-                break
-            clip_video_urls.append(ext_url)
-            prev_id = ext_id
-
-        # ---- If only one clip, download directly ----
-        if len(clip_video_urls) == 1:
-            dl = requests.get(clip_video_urls[0], timeout=120)
-            if dl.status_code == 200:
-                return dl.content
-            return None
-
-        # ---- Concatenate clips with FFmpeg ----
-        with tempfile.TemporaryDirectory() as tmp:
-            clip_paths = []
-            for i, url in enumerate(clip_video_urls):
-                dl = requests.get(url, timeout=120)
-                if dl.status_code != 200:
-                    continue
-                p = os.path.join(tmp, f"clip_{i:03d}.mp4")
-                with open(p, "wb") as f:
-                    f.write(dl.content)
-                clip_paths.append(p)
-
-            if not clip_paths:
-                return None
-
-            list_file = os.path.join(tmp, "concat.txt")
-            with open(list_file, "w") as f:
-                for cp in clip_paths:
-                    f.write(f"file '{cp}'\n")
-
-            out_path = os.path.join(tmp, "final.mp4")
-            result = subprocess.run(
-                ["ffmpeg", "-y", "-f", "concat", "-safe", "0",
-                 "-i", list_file, "-c", "copy", out_path],
-                capture_output=True, timeout=120,
-            )
-            if result.returncode == 0 and os.path.exists(out_path):
-                with open(out_path, "rb") as f:
-                    return f.read()
-
+        return resp.json().get("data", {}).get("access_token")
     except Exception as e:
-        st.warning(f"Luma AI error: {str(e)[:150]}")
-
-    return None
-
-
-# =============================================================================
-# KLING AI – Direct API (secondary)
-# Docs: https://platform.klingai.com/docs
-# Free tier: daily credits at platform.klingai.com
-# Supports up to 3-minute videos at 1080p
-# =============================================================================
-
-def _kling_jwt(access_key: str, secret_key: str) -> str:
-    """Build the JWT required for Kling API auth."""
-    import hmac
-    import hashlib as hl
-    header  = base64.urlsafe_b64encode(json.dumps({"alg": "HS256", "typ": "JWT"}).encode()).rstrip(b"=").decode()
-    now     = int(time.time())
-    payload = base64.urlsafe_b64encode(json.dumps({"iss": access_key, "exp": now + 1800, "nbf": now - 5}).encode()).rstrip(b"=").decode()
-    sig_input = f"{header}.{payload}".encode()
-    sig = base64.urlsafe_b64encode(hmac.new(secret_key.encode(), sig_input, hl.sha256).digest()).rstrip(b"=").decode()
-    return f"{header}.{payload}.{sig}"
-
-def generate_video_kling(
-    prompt: str,
-    access_key: str,
-    secret_key: str,
-    duration: int = 10,
-    aspect_ratio: str = "16:9",
-    with_audio: bool = True,
-) -> Optional[bytes]:
-    """
-    Generate video using Kling AI v1.6 via the direct Kling platform API.
-    Supports up to 3-minute videos.  Free tier credits at platform.klingai.com.
-    """
-    if not access_key or not secret_key:
+        st.warning(f"CapCut auth exception: {str(e)[:150]}")
         return None
 
-    try:
-        jwt_token = _kling_jwt(access_key, secret_key)
-        headers = {
-            "Authorization": f"Bearer {jwt_token}",
-            "Content-Type": "application/json",
-        }
 
-        # Kling accepts duration as an integer (seconds), max 180
-        payload = {
-            "model_name": "kling-v1-6",
-            "prompt": prompt,
-            "negative_prompt": "blurry, low quality, distorted, watermark",
-            "cfg_scale": 0.5,
-            "mode": "pro",
-            "aspect_ratio": aspect_ratio,
-            "duration": str(min(duration, 180)),
-        }
-
-        resp = requests.post(
-            "https://api.klingai.com/v1/videos/text2video",
-            headers=headers,
-            json=payload,
-            timeout=60,
-        )
-        if resp.status_code not in (200, 201):
-            st.warning(f"Kling API error {resp.status_code}: {resp.text[:200]}")
-            return None
-
-        task_id = resp.json().get("data", {}).get("task_id")
-        if not task_id:
-            return None
-
-        # Poll for completion
-        deadline = time.time() + 600
-        while time.time() < deadline:
-            poll = requests.get(
-                f"https://api.klingai.com/v1/videos/text2video/{task_id}",
+def _capcut_poll(task_id: str, token: str, timeout: int = 300) -> Optional[str]:
+    """
+    Poll the CapCut render job until it succeeds or times out.
+    Returns the CDN video URL on success, None on failure/timeout.
+    """
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type":  "application/json",
+    }
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            resp = requests.get(
+                f"{CAPCUT_API_BASE}/v1/video/{task_id}",
                 headers=headers,
                 timeout=30,
             )
-            if poll.status_code != 200:
+            if resp.status_code != 200:
                 break
-            data = poll.json().get("data", {})
-            status = data.get("task_status", "")
-            if status == "succeed":
-                video_url = data.get("task_result", {}).get("videos", [{}])[0].get("url")
-                if video_url:
-                    dl = requests.get(video_url, timeout=120)
-                    if dl.status_code == 200:
-                        return dl.content
-                return None
-            if status == "failed":
-                st.warning(f"Kling task failed: {data.get('task_status_msg', 'unknown')}")
-                return None
-            time.sleep(8)
+            data   = resp.json().get("data", {})
+            status = data.get("status", "")
 
-    except Exception as e:
-        st.warning(f"Kling API error: {str(e)[:150]}")
+            if status == "succeeded":
+                return data.get("video_url")
+            if status in ("failed", "error"):
+                st.warning(f"CapCut render failed: {data.get('message', 'unknown reason')}")
+                return None
+        except Exception:
+            pass
+        time.sleep(5)
 
+    st.warning("CapCut render timed out. Try again or choose a shorter duration.")
     return None
 
 
-# =============================================================================
-# REPLICATE – Wan 2.1 & CogVideoX (third option / free-trial)
-# Docs: https://replicate.com/docs
-# Signup gives $5 free credit — enough for ~50-100 videos
-# Wan 2.1:    ~$0.05/video at 480p    wavespeedai/wan-2.1-t2v-480p
-# CogVideoX:  ~$0.10/video at 720p    lucataco/cogvideox-5b
-# =============================================================================
-
-def generate_video_replicate(
-    prompt: str,
-    api_token: str,
-    model: str = "wan",            # "wan" or "cog"
-    duration: int = 10,
-    resolution: str = "720p",
+def generate_video_capcut(
+    prompt:      str,
+    client_key:  str,
+    client_secret: str,
+    template_id: str  = "",
+    style:       str  = "curiosity-driven",
+    duration:    int  = 30,
+    resolution:  str  = "720p",
+    ratio:       str  = "16:9",
 ) -> Optional[bytes]:
     """
-    Generate video via Replicate API.
-    - Wan 2.1  (fast, cheap ~$0.05)  : model="wan"
-    - CogVideoX 5B (cinematic ~$0.10): model="cog"
+    Generate a video via the CapCut Open Platform API.
 
-    $5 free credit on signup — no credit card required for first $5.
+    Steps
+    -----
+    1. Authenticate to obtain an access token.
+    2. Submit a render job with the chosen template and text prompt.
+    3. Poll until the job completes.
+    4. Download and return the raw video bytes.
+
+    Parameters
+    ----------
+    prompt        : Text description / script used to populate the template.
+    client_key    : CapCut application Client Key.
+    client_secret : CapCut application Client Secret.
+    template_id   : CapCut template ID (falls back to style-based default if empty).
+    style         : One of the STYLE_TEMPLATE_MAP keys (used when template_id is empty).
+    duration      : Target video duration in seconds (1–60).
+    resolution    : "480p", "720p", or "1080p".
+    ratio         : "16:9", "9:16", or "1:1".
     """
-    if not api_token:
+    if not client_key or not client_secret:
         return None
 
-    model_map = {
-        "wan": "wavespeedai/wan-2.1-t2v-480p",
-        "cog": "lucataco/cogvideox-5b",
-    }
-    replicate_model = model_map.get(model, model_map["wan"])
+    # ---- 1. Auth ----
+    token = _capcut_access_token(client_key, client_secret)
+    if not token:
+        return None
+
+    # ---- 2. Pick template ----
+    resolved_template = (
+        template_id.strip()
+        or STYLE_TEMPLATE_MAP.get(style.lower(), STYLE_TEMPLATE_MAP["curiosity-driven"])
+    )
 
     headers = {
-        "Authorization": f"Token {api_token}",
-        "Content-Type": "application/json",
+        "Authorization": f"Bearer {token}",
+        "Content-Type":  "application/json",
     }
 
-    # Build model-specific inputs
-    if model == "wan":
-        model_input = {
-            "prompt": prompt,
-            "num_frames": min(duration * 16, 81),   # Wan caps at 81 frames (~5s at 16fps)
-            "sample_guide_scale": 5.0,
-            "sample_steps": 30,
-            "fast_mode": "Balanced",
-        }
-    else:  # cogvideox
-        model_input = {
-            "prompt": prompt,
-            "num_inference_steps": 50,
-            "num_frames": min(duration * 8, 49),    # CogVideoX at 8fps
-            "guidance_scale": 6.0,
-            "generate_type": "t2v",
-        }
+    # ---- 3. Submit render job ----
+    # The CapCut API accepts a `texts` list to populate text layers in the template.
+    # Each element maps to a named layer slot defined by the template.
+    payload = {
+        "template_id":  resolved_template,
+        "aspect_ratio": RATIO_MAP.get(ratio, "16:9"),
+        "resolution":   RESOLUTION_MAP.get(resolution, "720p"),
+        "duration":     min(duration, 60),          # CapCut max per clip = 60 s
+        "texts": [
+            {
+                "layer_name": "main_text",          # primary headline / hook layer
+                "content":    prompt[:150],         # CapCut text layers have a char limit
+            },
+            {
+                "layer_name": "sub_text",           # subtitle / body copy layer
+                "content":    prompt[150:300] if len(prompt) > 150 else "",
+            },
+        ],
+        # Optional: pass AI style cues supported by newer CapCut templates
+        "ai_params": {
+            "style_prompt": style,
+            "auto_caption": True,                   # auto-generate captions from text
+            "auto_music":   True,                   # auto-match background music
+        },
+    }
 
     try:
-        # Submit prediction
         resp = requests.post(
-            "https://api.replicate.com/v1/models/" + replicate_model + "/predictions",
+            f"{CAPCUT_API_BASE}/v1/video/create",
             headers=headers,
-            json={"input": model_input},
+            json=payload,
             timeout=60,
         )
-        if resp.status_code not in (200, 201):
-            st.warning(f"Replicate submit error {resp.status_code}: {resp.text[:200]}")
-            return None
-
-        prediction_url = resp.json().get("urls", {}).get("get")
-        if not prediction_url:
-            return None
-
-        # Poll until done
-        deadline = time.time() + 600
-        while time.time() < deadline:
-            poll = requests.get(prediction_url, headers=headers, timeout=30)
-            if poll.status_code != 200:
-                break
-            data = poll.json()
-            status = data.get("status", "")
-            if status == "succeeded":
-                output = data.get("output")
-                video_url = output if isinstance(output, str) else (output[0] if output else None)
-                if video_url:
-                    dl = requests.get(video_url, timeout=120)
-                    if dl.status_code == 200:
-                        return dl.content
-                return None
-            if status == "failed":
-                st.warning(f"Replicate prediction failed: {data.get('error', 'unknown')}")
-                return None
-            time.sleep(5)
-
     except Exception as e:
-        st.warning(f"Replicate API error: {str(e)[:150]}")
+        st.warning(f"CapCut submit exception: {str(e)[:150]}")
+        return None
+
+    if resp.status_code not in (200, 201):
+        st.warning(f"CapCut create error {resp.status_code}: {resp.text[:200]}")
+        return None
+
+    task_id = resp.json().get("data", {}).get("task_id")
+    if not task_id:
+        st.warning("CapCut returned no task_id. Check your template ID and credentials.")
+        return None
+
+    # ---- 4. Poll ----
+    video_url = _capcut_poll(task_id, token, timeout=300)
+    if not video_url:
+        return None
+
+    # ---- 5. Download ----
+    try:
+        dl = requests.get(video_url, timeout=120)
+        if dl.status_code == 200:
+            return dl.content
+    except Exception as e:
+        st.warning(f"CapCut download error: {str(e)[:150]}")
 
     return None
 
 
 # =============================================================================
-# Unified dispatcher
-# =============================================================================
-
-def generate_video(
-    prompt: str,
-    model: VideoModel,
-    duration: int,
-    resolution: str,
-    aspect_ratio: str,
-) -> Optional[bytes]:
-    """Route to the correct generator based on selected model."""
-
-    if model == VideoModel.LUMA_DREAM:
-        return generate_video_luma(prompt, luma_api_key, duration, aspect_ratio)
-
-    elif model == VideoModel.KLING_3:
-        return generate_video_kling(
-            prompt, kling_access_key, kling_secret_key,
-            duration, aspect_ratio, enable_audio
-        )
-
-    elif model == VideoModel.REPLICATE_WAN:
-        return generate_video_replicate(prompt, replicate_api_key, "wan", duration, resolution)
-
-    elif model == VideoModel.REPLICATE_COG:
-        return generate_video_replicate(prompt, replicate_api_key, "cog", duration, resolution)
-
-    return None
-
-
-# =============================================================================
-# Script Generation
+# Script / Hook Generation (unchanged from original)
 # =============================================================================
 
 def generate_viral_script_advanced(
-    topic: str,
-    style: str = "curiosity_gap",
+    topic:    str,
+    style:    str = "curiosity_gap",
     duration: int = 30,
 ) -> Dict[str, Any]:
     hooks = {
@@ -644,9 +441,9 @@ def generate_viral_script_advanced(
     ]
 
     selected_hooks = hooks.get(style, hooks["curiosity_gap"])
-    hook = random.choice(selected_hooks)
+    hook  = random.choice(selected_hooks)
     props = random.sample(value_props, min(3, len(value_props)))
-    cta  = random.choice(ctas)
+    cta   = random.choice(ctas)
 
     return {
         "topic":       topic,
@@ -663,18 +460,29 @@ def generate_viral_script_advanced(
 # =============================================================================
 
 def batch_generate_videos(
-    topic: str,
-    model: VideoModel,
-    count: int,
+    topic:    str,
+    count:    int,
     duration: int,
+    style:    str,
 ) -> List[Tuple[bytes, str]]:
     results = []
-    styles  = ["curiosity_gap", "urgency", "value_first", "emotional"]
+    hook_styles = ["curiosity_gap", "urgency", "value_first", "emotional"]
 
     for i in range(count):
-        script = generate_viral_script_advanced(topic, style=styles[i % len(styles)], duration=duration)
-        prompt = f"Create a {duration}-second video about: {script['hook']}. {script['full_script']}"
-        video_bytes = generate_video(prompt, model, duration, video_resolution, aspect_ratio)
+        chosen_hook_style = hook_styles[i % len(hook_styles)]
+        script = generate_viral_script_advanced(topic, chosen_hook_style, duration)
+        prompt = f"{script['hook']} {script['full_script']}"
+
+        video_bytes = generate_video_capcut(
+            prompt        = prompt,
+            client_key    = capcut_client_key,
+            client_secret = capcut_client_secret,
+            template_id   = capcut_template_id,
+            style         = style,
+            duration      = duration,
+            resolution    = video_resolution,
+            ratio         = aspect_ratio,
+        )
         if video_bytes:
             results.append((video_bytes, script["full_script"]))
 
@@ -687,8 +495,8 @@ def batch_generate_videos(
 
 def post_to_social_platforms(
     video_bytes: bytes,
-    caption: str,
-    platforms: List[str],
+    caption:     str,
+    platforms:   List[str],
     credentials: Dict,
 ) -> List[Dict]:
     results = []
@@ -711,11 +519,9 @@ def post_to_social_platforms(
 st.markdown("""
 <div class="hero-section">
     <h1 style="font-size:3em; margin-bottom:10px;">🎬 AI Video Creator Pro</h1>
-    <p style="font-size:1.2em; opacity:.95;">Enterprise-Grade Autonomous Video Generation & Social Media Distribution</p>
+    <p style="font-size:1.2em; opacity:.95;">Powered by CapCut Open Platform – Enterprise Edition 2026</p>
     <p style="font-size:.9em; margin-top:15px;">
-        <span class="provider-badge luma-badge">LUMA DREAM MACHINE</span>
-        <span class="provider-badge kling-badge">KLING 1.6</span>
-        <span class="provider-badge replic-badge">REPLICATE WAN 2.1 / COG</span>
+        <span class="provider-badge capcut-badge">✂️ CAPCUT OPEN PLATFORM</span>
     </p>
 </div>
 """, unsafe_allow_html=True)
@@ -733,21 +539,18 @@ with col4:
 
 st.markdown("---")
 
-# Which API keys are available?
-has_luma      = bool(luma_api_key)
-has_kling     = bool(kling_access_key and kling_secret_key)
-has_replicate = bool(replicate_api_key)
-any_key       = has_luma or has_kling or has_replicate
+has_capcut = bool(capcut_client_key and capcut_client_secret)
 
-if not any_key:
+if not has_capcut:
     st.info("""
-    **👋 Welcome!** Add at least one API key in the sidebar to start generating videos.
+    **👋 Welcome!** Add your CapCut credentials in the sidebar to start generating videos.
 
-    | Provider | Free Tier | Sign-up Link |
-    |---|---|---|
-    | 🟦 **Luma AI** | 30 free credits/month | [lumalabs.ai](https://lumalabs.ai) |
-    | 🟥 **Kling AI** | Daily free credits | [platform.klingai.com](https://platform.klingai.com) |
-    | 🟣 **Replicate** | $5 free credit | [replicate.com](https://replicate.com) |
+    | Step | Action |
+    |---|---|
+    | 1 | Sign up at [developer.capcut.com](https://developer.capcut.com) |
+    | 2 | Create an application to receive your **Client Key** and **Client Secret** |
+    | 3 | (Optional) Pick a Template ID from the CapCut Template Library |
+    | 4 | Paste your credentials in the sidebar and start generating! |
     """)
 
 tab1, tab2, tab3, tab4 = st.tabs(["🚀 Generate Video", "📊 Batch Studio", "📱 Auto-Post", "📈 Analytics"])
@@ -772,31 +575,37 @@ with tab1:
 
         tone = st.radio("Tone", ["Professional", "Casual", "Energetic", "Emotional"], horizontal=True)
 
-        # Model key validation hint
-        if video_model == VideoModel.LUMA_DREAM and not has_luma:
-            st.warning("⚠️ Luma AI selected but no Luma API key provided.")
-        elif video_model == VideoModel.KLING_3 and not has_kling:
-            st.warning("⚠️ Kling selected but no Kling keys provided (need both Access Key & Secret Key).")
-        elif video_model in (VideoModel.REPLICATE_WAN, VideoModel.REPLICATE_COG) and not has_replicate:
-            st.warning("⚠️ Replicate selected but no Replicate API token provided.")
+        if not has_capcut:
+            st.warning("⚠️ Enter your CapCut Client Key and Client Secret in the sidebar to generate videos.")
 
         if st.button("🚀 Generate AI Video", type="primary", use_container_width=True):
             if not topic:
                 st.error("Please enter a topic")
-            elif not any_key:
-                st.error("Please enter at least one API key in the sidebar")
+            elif not has_capcut:
+                st.error("Please enter your CapCut credentials in the sidebar")
             else:
+                # Map UI style label to script hook style key
                 style_key = style.lower().replace("-", "_").replace(" ", "_")
-                with st.spinner("🎬 Generating video… this may take 30–120 seconds"):
+
+                with st.spinner("🎬 Sending to CapCut… this may take 30–120 seconds"):
                     script = generate_viral_script_advanced(topic, style_key, video_duration)
                     st.info(f"**Hook:** {script['hook']}")
 
                     prompt = (
-                        f"Create a {video_duration}-second, {tone.lower()}, "
-                        f"{style.lower()} video about: {script['hook']}. {script['full_script']}"
+                        f"{tone} {style.lower()} video about: "
+                        f"{script['hook']} {script['full_script']}"
                     )
 
-                    video_bytes = generate_video(prompt, video_model, video_duration, video_resolution, aspect_ratio)
+                    video_bytes = generate_video_capcut(
+                        prompt        = prompt,
+                        client_key    = capcut_client_key,
+                        client_secret = capcut_client_secret,
+                        template_id   = capcut_template_id,
+                        style         = style.lower(),
+                        duration      = video_duration,
+                        resolution    = video_resolution,
+                        ratio         = aspect_ratio,
+                    )
 
                     if video_bytes:
                         st.session_state.final_video_bytes = video_bytes
@@ -804,22 +613,25 @@ with tab1:
                         st.session_state.generation_history.append({
                             "topic":     topic,
                             "timestamp": datetime.now().isoformat(),
-                            "model":     video_model.value,
+                            "model":     "CapCut Open Platform",
                         })
 
                         st.markdown("### 🎥 Generated Video")
                         st.video(video_bytes)
 
                         st.download_button(
-                            label=f"📥 Download Video (MP4)",
-                            data=video_bytes,
-                            file_name=f"{topic[:40].replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.mp4",
-                            mime="video/mp4",
+                            label    = "📥 Download Video (MP4)",
+                            data     = video_bytes,
+                            file_name= f"{topic[:40].replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.mp4",
+                            mime     = "video/mp4",
                         )
                         st.success("✅ Video generated successfully!")
                         st.balloons()
                     else:
-                        st.error("Generation failed. Check your API key and model selection, then try again.")
+                        st.error(
+                            "Generation failed. Check your Client Key, Client Secret, "
+                            "and Template ID (if provided), then try again."
+                        )
 
     with col2:
         st.markdown("### 🎨 Quick Templates")
@@ -836,10 +648,18 @@ with tab1:
                 st.rerun()
 
         st.markdown("---")
-        st.markdown("### 🔑 Provider Status")
-        st.markdown(f"{'✅' if has_luma      else '❌'} Luma AI Dream Machine")
-        st.markdown(f"{'✅' if has_kling     else '❌'} Kling 1.6")
-        st.markdown(f"{'✅' if has_replicate else '❌'} Replicate (Wan / CogVideoX)")
+        st.markdown("### 🔑 Credential Status")
+        st.markdown(f"{'✅' if has_capcut else '❌'} CapCut Open Platform")
+
+        st.markdown("---")
+        st.markdown("### 📐 CapCut Aspect Ratios")
+        st.markdown("""
+        | Ratio | Best For |
+        |---|---|
+        | **16:9** | YouTube, LinkedIn |
+        | **9:16** | TikTok, Reels, Shorts |
+        | **1:1**  | Instagram feed |
+        """)
 
 # ------------------------------------------------------------------
 with tab2:
@@ -850,26 +670,32 @@ with tab2:
         col1, col2 = st.columns(2)
 
         with col1:
-            batch_topic = st.text_input("Topic for batch generation", placeholder="Enter your topic")
+            batch_topic    = st.text_input("Topic for batch generation", placeholder="Enter your topic")
             batch_count_ui = st.slider("Number of variations", 2, 10, batch_count)
+            batch_style    = st.selectbox(
+                "Base style",
+                ["Curiosity-driven", "Urgent", "Educational", "Emotional", "Entertaining"]
+            )
 
         with col2:
             st.markdown("### Testing Strategy")
             st.info("""
             **A/B Test Different Hooks:**
             - Curiosity gap vs. Urgency vs. Value-first
+            - Multiple CapCut templates for visual variety
             - Different CTAs for engagement optimisation
-            - Multiple visual styles for audience testing
             """)
 
         if st.button("🎬 Generate Batch", type="primary", use_container_width=True):
             if not batch_topic:
                 st.error("Please enter a topic")
-            elif not any_key:
-                st.error("Please add at least one API key in the sidebar")
+            elif not has_capcut:
+                st.error("Please add your CapCut credentials in the sidebar")
             else:
-                with st.spinner(f"Generating {batch_count_ui} video variations…"):
-                    results = batch_generate_videos(batch_topic, video_model, batch_count_ui, video_duration)
+                with st.spinner(f"Generating {batch_count_ui} video variations via CapCut…"):
+                    results = batch_generate_videos(
+                        batch_topic, batch_count_ui, video_duration, batch_style.lower()
+                    )
                     st.success(f"✅ Generated {len(results)} variations!")
 
                     for i, (vb, script) in enumerate(results):
@@ -891,7 +717,7 @@ with tab3:
         st.markdown("---")
         default_caption = st.text_area(
             "Default Caption Template",
-            value="🔥 Just generated this AI video! Check it out! 🎬\n\n#AIVideo #Trending #Viral",
+            value="🔥 Just generated this AI video with CapCut! Check it out! 🎬\n\n#AIVideo #CapCut #Trending #Viral",
         )
 
         schedule_type = st.radio(
@@ -940,7 +766,7 @@ with tab4:
             st.info("No videos generated yet.")
         for item in st.session_state.generation_history[-5:]:
             st.markdown(f"""
-            <div style="background:rgba(15,76,117,.12);border-radius:10px;padding:10px;margin:5px 0;">
+            <div style="background:rgba(255,45,85,.08);border-radius:10px;padding:10px;margin:5px 0;">
                 <strong>{item['topic'][:50]}</strong><br>
                 <small>Generated: {item['timestamp'][:16]} | Model: {item['model']}</small>
             </div>
@@ -953,7 +779,7 @@ with tab4:
         for post in st.session_state.social_posts[-5:]:
             cls = "status-success" if post.get("success") else "status-error"
             st.markdown(f"""
-            <div style="background:rgba(15,76,117,.12);border-radius:10px;padding:10px;margin:5px 0;">
+            <div style="background:rgba(255,45,85,.08);border-radius:10px;padding:10px;margin:5px 0;">
                 <span class="status-badge {cls}">{'✅ Posted' if post.get('success') else '❌ Failed'}</span>
                 <strong>{post.get('platform','?')}</strong><br>
                 <small>{post.get('timestamp','')[:16]}</small>
@@ -964,12 +790,12 @@ with tab4:
 st.markdown("---")
 st.markdown("""
 <div style="text-align:center;padding:20px;">
-    <p>🎬 <strong>AI Video Creator Pro – Enterprise Edition 2026</strong></p>
+    <p>🎬 <strong>AI Video Creator Pro – CapCut Edition 2026</strong></p>
     <p style="font-size:12px;color:#666;">
-        Powered by Luma AI Dream Machine • Kling 1.6 • Replicate Wan 2.1 / CogVideoX 5B
+        Powered by CapCut Open Platform API
     </p>
     <p style="font-size:12px;color:#999;">
-        60-second AI video generation | Multi-platform auto-posting | A/B testing | Real-time analytics
+        Template-based AI video generation | Multi-platform auto-posting | A/B testing | Real-time analytics
     </p>
 </div>
 """, unsafe_allow_html=True)
